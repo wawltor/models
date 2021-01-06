@@ -319,7 +319,7 @@ class XnliProcessor(DataProcessor):
             examples.append(
                 InputExample(
                     guid=guid, text_a=text_a, text_b=text_b, label=label))
-        return examples
+        return examples[:100]
 
     def get_labels(self):
         """See base class."""

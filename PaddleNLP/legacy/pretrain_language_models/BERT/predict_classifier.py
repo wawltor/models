@@ -58,13 +58,14 @@ data_g.add_arg("do_lower_case", bool, True,
 
 run_type_g = ArgumentGroup(parser, "run_type", "running type options.")
 run_type_g.add_arg("use_cuda",          bool,   True,  "If set, use GPU for training.")
+run_type_g.add_arg("use_xpu",           bool,   False,  "If set, use XPU for training.")
 run_type_g.add_arg("task_name",         str,    None,
                    "The name of task to perform fine-tuning, should be in {'xnli', 'mnli', 'cola', 'mrpc'}.")
 run_type_g.add_arg("do_prediction",     bool,   True,  "Whether to do prediction on test set.")
 
 args = parser.parse_args()
 # yapf: enable.
-
+label_dict = {0:"中立", 1:"包含", 2:"矛盾"}
 def main(args):
     bert_config = BertConfig(args.bert_config_path)
     bert_config.print_config()
@@ -99,11 +100,15 @@ def main(args):
     if args.use_cuda:
         place = fluid.CUDAPlace(0)
         dev_count = fluid.core.get_cuda_device_count()
+    elif args.use_xpu:
+        paddle.enable_static()
+        xpu_id = int(os.getenv('FLAGS_selected_xpus', '0'))
+        place = fluid.XPUPlace(xpu_id)
+        dev_count = len([place])       
     else:
         place = fluid.CPUPlace()
         dev_count = int(os.environ.get('CPU_NUM', multiprocessing.cpu_count()))
 
-    place = fluid.CUDAPlace(0) if args.use_cuda == True else fluid.CPUPlace()
     exe = fluid.Executor(place)
     exe.run(predict_startup)
 
@@ -128,7 +133,8 @@ def main(args):
     while True:
         try:
             results = predict_exe.run(fetch_list=[probs.name])
-            all_results.extend(results[0])
+            argmax_result = np.array(results[0]).argmax(axis=-1).tolist()
+            all_results.extend(argmax_result)
         except fluid.core.EOFException:
             predict_data_loader.reset()
             break
@@ -137,8 +143,9 @@ def main(args):
     np.set_printoptions(precision=4, suppress=True)
     print("-------------- prediction results --------------")
     print("example_id\t" + '  '.join(processor.get_labels()))
+    print(all_results)
     for index, result in enumerate(all_results):
-        print(str(index) + '\t{}'.format(result))
+        print("index:{}, result:{}".format(index, label_dict[all_results[index][0]]))
 
     if args.save_inference_model_path:
         _, ckpt_dir = os.path.split(args.init_checkpoint.rstrip('/'))
