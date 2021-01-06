@@ -65,7 +65,7 @@ run_type_g.add_arg("do_prediction",     bool,   True,  "Whether to do prediction
 
 args = parser.parse_args()
 # yapf: enable.
-label_dict = {0:"中立", 1:"包含", 2:"矛盾"}
+label_dict = {0:"矛盾", 1:"包含", 2:"中立"}
 def main(args):
     bert_config = BertConfig(args.bert_config_path)
     bert_config.print_config()
@@ -134,6 +134,7 @@ def main(args):
         try:
             results = predict_exe.run(fetch_list=[probs.name])
             argmax_result = np.array(results[0]).argmax(axis=-1).tolist()
+            print(argmax_result)
             all_results.extend(argmax_result)
         except fluid.core.EOFException:
             predict_data_loader.reset()
@@ -143,9 +144,12 @@ def main(args):
     np.set_printoptions(precision=4, suppress=True)
     print("-------------- prediction results --------------")
     print("example_id\t" + '  '.join(processor.get_labels()))
-    print(all_results)
+    samples = processor.test_samples
     for index, result in enumerate(all_results):
-        print("index:{}, result:{}".format(index, label_dict[all_results[index][0]]))
+        #print("index:{}, result:{}".format(index, label_dict[all_results[index][0]]))
+        print("No:{} 句子1:{}\t句子2:{}\n预测结果:{}\n------------------------------".
+             format(index, samples[index][0], samples[index][1],
+             label_dict[all_results[index][0]]))
 
     if args.save_inference_model_path:
         _, ckpt_dir = os.path.split(args.init_checkpoint.rstrip('/'))

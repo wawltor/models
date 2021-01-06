@@ -43,6 +43,7 @@ class DataProcessor(object):
         self.current_train_example = -1
         self.num_examples = {'train': -1, 'dev': -1, 'test': -1}
         self.current_train_epoch = -1
+        self.test_samples = []
 
     def get_train_examples(self, data_dir):
         """Gets a collection of `InputExample`s for the train set."""
@@ -306,6 +307,7 @@ class XnliProcessor(DataProcessor):
         self.language = "zh"
         lines = self._read_tsv(os.path.join(data_dir, "xnli.test.tsv"))
         examples = []
+        raw_samples = []
         for (i, line) in enumerate(lines):
             if i == 0:
                 continue
@@ -316,9 +318,11 @@ class XnliProcessor(DataProcessor):
             text_a = tokenization.convert_to_unicode(line[6])
             text_b = tokenization.convert_to_unicode(line[7])
             label = tokenization.convert_to_unicode(line[1])
+            raw_samples.append([line[6], line[7]])
             examples.append(
                 InputExample(
                     guid=guid, text_a=text_a, text_b=text_b, label=label))
+        self.test_samples = raw_samples[:100]
         return examples[:100]
 
     def get_labels(self):
