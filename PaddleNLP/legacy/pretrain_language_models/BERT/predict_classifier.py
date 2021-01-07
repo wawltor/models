@@ -134,7 +134,6 @@ def main(args):
         try:
             results = predict_exe.run(fetch_list=[probs.name])
             argmax_result = np.array(results[0]).argmax(axis=-1).tolist()
-            print(argmax_result)
             all_results.extend(argmax_result)
         except fluid.core.EOFException:
             predict_data_loader.reset()
@@ -143,7 +142,6 @@ def main(args):
 
     np.set_printoptions(precision=4, suppress=True)
     print("-------------- prediction results --------------")
-    print("example_id\t" + '  '.join(processor.get_labels()))
     samples = processor.test_samples
     for index, result in enumerate(all_results):
         #print("index:{}, result:{}".format(index, label_dict[all_results[index][0]]))

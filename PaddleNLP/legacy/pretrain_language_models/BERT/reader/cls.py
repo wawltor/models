@@ -280,7 +280,7 @@ class XnliProcessor(DataProcessor):
             examples.append(
                 InputExample(
                     guid=guid, text_a=text_a, text_b=text_b, label=label))
-        return examples
+        return examples[:500]
 
     def get_dev_examples(self, data_dir):
         """See base class."""

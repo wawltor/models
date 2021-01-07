@@ -11,7 +11,7 @@ python -u predict_classifier.py --task_name "XNLI" \
        --batch_size 64 \
        --data_dir data/XNLI-MT-1.0 \
        --vocab_path chinese_L-12_H-768_A-12/vocab.txt \
-       --init_checkpoint save/step_20/\
+       --init_checkpoint checkpoints/step_70000.pdparams \
        --do_lower_case true \
        --max_seq_len 128 \
        --bert_config_path chinese_L-12_H-768_A-12/bert_config.json \
