@@ -332,10 +332,11 @@ class MultiHeadAttention(nn.Layer):
         # TODO(guosheng): use tensor.matmul, however it doesn't support `alpha`
         product = layers.matmul(
             x=q, y=k, transpose_y=True, alpha=self.head_dim**-0.5)
-
         if attn_mask is not None:
             # TODO(guosheng): support bool mask
-            product = product + attn_mask
+            product = product * attn_mask 
+            mask_score = (attn_mask-1.0) * 10000.0
+            product = product + mask_score
         weights = F.softmax(product)
         if self.dropout:
             weights = F.dropout(
@@ -356,7 +357,7 @@ class MultiHeadAttention(nn.Layer):
         outs = [out]
         if self.need_weights:
             outs.append(weights)
-        if use_cache is True:
+        if use_cache:
             outs.append(cache)
         return out if len(outs) == 1 else tuple(outs)
 
@@ -482,8 +483,8 @@ class TransformerDecoder(nn.Layer):
                 new_caches.append(new_cache)
             self.checkpoints.append(output.name)
 
-        if self.norm is not None:
-            output = self.norm(output)
+        #if self.norm is not None:
+        #    output = self.norm(output)
         return output if use_cache is False else (output, new_caches)
 
     def gen_cache(self, memory, do_zip=False):
@@ -549,16 +550,16 @@ class TransformerDecoderLayer(nn.Layer):
         #self.dropout1 = nn.Dropout(act_dropout, mode="upscale_in_train")
         self.linear2 = nn.Linear(
             dim_feedforward, d_model, weight_attrs[2], bias_attr=bias_attrs[2])
-        self.norm1 = nn.LayerNorm(d_model, epsilon=1e-5)
-        self.norm2 = nn.LayerNorm(d_model, epsilon=1e-5)
+        #self.norm1 = nn.LayerNorm(d_model, epsilon=1e-5)
+        #self.norm2 = nn.LayerNorm(d_model, epsilon=1e-5)
         self.dropout1 = nn.Dropout(dropout, mode="upscale_in_train")
         self.dropout2 = nn.Dropout(act_dropout, mode="upscale_in_train")
         self.activation = getattr(F, activation)
 
     def forward(self, tgt, memory, tgt_mask=None, use_cache=False, cache=None):
         residual = tgt
-        if self.normalize_before:
-            tgt = self.norm1(tgt)
+        #if self.normalize_before:
+        #    tgt = self.norm1(tgt)
 
         if use_cache is False:
             tgt = self.self_attn(tgt, tgt, tgt, tgt_mask, use_cache, cache)
@@ -566,20 +567,20 @@ class TransformerDecoderLayer(nn.Layer):
             tgt, incremental_cache = self.self_attn(tgt, tgt, tgt, tgt_mask,
                                                     use_cache, cache)
         tgt = residual + self.dropout1(tgt)
-        if not self.normalize_before:
-            tgt = self.norm1(tgt)
+        #if not self.normalize_before:
+        #    tgt = self.norm1(tgt)
 
         residual = tgt
-        if self.normalize_before:
-            tgt = self.norm2(tgt)
-        # tgt = self.dropout2(self.linear2(openai_glue(self.linear1(tgt))))
+        #if self.normalize_before:
+        #    tgt = self.norm2(tgt)
+        #tgt = self.dropout2(self.linear2(openai_glue(self.linear1(tgt))))
         tgt = self.dropout2(
             self.linear2(F.gelu(
                 self.linear1(tgt), approximate=True)))
         tgt = residual + tgt
 
-        if not self.normalize_before:
-            tgt = self.norm2(tgt)
+        #if not self.normalize_before:
+        #    tgt = self.norm2(tgt)
 
         return tgt if use_cache is False else (tgt, incremental_cache)
 
@@ -619,7 +620,6 @@ class GPT2Embeddings(nn.Layer):
             ones = paddle.ones_like(input_ids, dtype="int64")
             seq_length = paddle.cumsum(ones, axis=1)
             position_ids = seq_length - ones
-
         input_embedings = self.word_embeddings(input_ids)
         position_embeddings = self.position_embeddings(position_ids)
 
@@ -681,8 +681,8 @@ class GPT2PretrainedModel(PretrainedModel):
         "gpt2-small-en": {
             "vocab_size": 50304,
             "hidden_size": 1024,
-            "num_hidden_layers": 4,
-            "num_attention_heads": 4,
+            "num_hidden_layers": 12,
+            "num_attention_heads": 16,
             "intermediate_size": 4096,
             "hidden_act": "gelu",
             "hidden_dropout_prob": 0.0,
@@ -751,7 +751,7 @@ class GPT2Model(GPT2PretrainedModel):
                 mean=0.0, std=self.initializer_range)),
             bias_attr=None)
         self.decoder = TransformerDecoder(
-            decoder_layer, num_hidden_layers, norm=nn.LayerNorm(hidden_size))
+            decoder_layer, num_hidden_layers, norm=None)
         self.apply(self.init_weights)
         self.checkpoints = []
 
